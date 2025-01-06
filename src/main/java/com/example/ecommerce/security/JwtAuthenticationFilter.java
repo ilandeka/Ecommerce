@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -56,9 +58,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
+    private static final List<String> EXCLUDE_PATHS = Arrays.asList(
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/refresh"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/api/auth/");
+        return EXCLUDE_PATHS.stream().anyMatch(path::startsWith);
     }
 }

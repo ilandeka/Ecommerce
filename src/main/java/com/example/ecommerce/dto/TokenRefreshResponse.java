@@ -3,21 +3,17 @@ package com.example.ecommerce.dto;
 import lombok.Getter;
 import lombok.Setter;
 
-@Setter
 @Getter
-public class AuthResponse {
+@Setter
+public class TokenRefreshResponse {
 
     private String accessToken;
     private String refreshToken;
     private String tokenType = "Bearer";
-    private String email;
-    private String fullName;
 
-    public AuthResponse(String accessToken, String refreshToken, String email, String fullName) {
+    public TokenRefreshResponse(String accessToken, String refreshToken) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
-        this.email = email;
-        this.fullName = fullName;
     }
 
 }

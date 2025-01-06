@@ -44,8 +44,11 @@ public class SecurityConfig {
                 )
                 // Configure authorization requests
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+                        // Public endpoints that don't require Authentication
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "api/products/**"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

@@ -16,7 +16,6 @@ public class ProductResponse {
     private Integer stockQuantity;
     private boolean available;
 
-    // Constructor
     public ProductResponse(Long id, String name, String description, BigDecimal price, Integer stockQuantity, boolean available) {
         this.id = id;
         this.name = name;
