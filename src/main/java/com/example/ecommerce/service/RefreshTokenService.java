@@ -1,7 +1,7 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.exception.TokenRefreshException;
-import com.example.ecommerce.model.RefreshToken;
+import com.example.ecommerce.model.entity.RefreshToken;
 import com.example.ecommerce.repository.RefreshTokenRepository;
 import com.example.ecommerce.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
