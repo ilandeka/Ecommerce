@@ -35,6 +35,9 @@ public class Order {
 
     private LocalDateTime createdAt;
 
+    @Embedded
+    private ShippingInfo shippingInfo;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

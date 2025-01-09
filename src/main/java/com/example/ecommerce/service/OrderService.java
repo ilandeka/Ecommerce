@@ -1,9 +1,6 @@
 package com.example.ecommerce.service;
 
-import com.example.ecommerce.model.entity.Cart;
-import com.example.ecommerce.model.entity.CartItem;
-import com.example.ecommerce.model.entity.Order;
-import com.example.ecommerce.model.entity.OrderItem;
+import com.example.ecommerce.model.entity.*;
 import com.example.ecommerce.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +19,7 @@ public class OrderService {
         this.productService = productService;
     }
 
-    public Order checkout(Long userId) {
+    public Order checkout(Long userId, ShippingInfo shippingInfo) {
         Cart cart = cartService.getCart(userId);
         if (cart.getItems().isEmpty()) {
             throw new RuntimeException("Cart is empty");
@@ -31,6 +28,8 @@ public class OrderService {
         Order order = new Order();
         order.setUser(cart.getUser());
         order.setTotal(cart.getTotal());
+        order.setShippingInfo(shippingInfo);
+        order.setStatus(OrderStatus.PENDING);
 
         // Convert cart items to order items
         for (CartItem cartItem : cart.getItems()) {
