@@ -59,6 +59,20 @@ public class ProductService {
         product.setAvailable(request.isAvailable());
     }
 
+    @Transactional
+    public void updateStock(Long productId, Integer quantity) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        int newStock = product.getStockQuantity() - quantity;
+        if (newStock < 0) {
+            throw new RuntimeException("Insufficient stock");
+        }
+
+        product.setStockQuantity(newStock);
+        productRepository.save(product);
+    }
+
     private ProductResponse mapToResponse(Product product) {
         return new ProductResponse(
                 product.getId(),
