@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "${app.cors.allowed-origins}")
 public class AuthController {
 
     private final AuthService authService;
@@ -26,6 +25,19 @@ public class AuthController {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.tokenBlacklistService = tokenBlacklistService;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+
+        return ResponseEntity.ok(new AuthResponse(
+                null,
+                null,
+                userPrincipal.getUsername(),
+                userPrincipal.getFullName()
+        ));
     }
 
     @PostMapping("/register/admin")

@@ -16,14 +16,16 @@ public class UserPrincipal implements UserDetails {
     private Long id;
     private String email;
     private String password;
+    private String fullName;
     private boolean enabled;
     private Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(Long id, String email, String password, boolean enabled,
+    public UserPrincipal(Long id, String email, String password, String fullName, boolean enabled,
                          Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
         this.password = password;
+        this.fullName = fullName;
         this.enabled = enabled;
         this.authorities = authorities;
     }
@@ -37,6 +39,7 @@ public class UserPrincipal implements UserDetails {
                 user.getId(),
                 user.getEmail(),
                 user.getPassword(),
+                user.getFullName(),
                 user.isEnabled(),
                 authorities
         );
