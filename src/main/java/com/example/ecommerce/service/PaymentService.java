@@ -43,7 +43,7 @@ public class PaymentService {
             // Create payment intent
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(order.getTotal().multiply(new BigDecimal("100")).longValue()) // Convert to cents
-                    .setCurrency(currency)
+                    .setCurrency(currency.toLowerCase())
                     .setAutomaticPaymentMethods(
                             PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                     .setEnabled(true)

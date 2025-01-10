@@ -9,10 +9,7 @@ import com.example.ecommerce.service.PaymentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -32,7 +29,7 @@ public class OrderController {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
-        // Create order
+        // Create order with shipping info in one step
         Order order = orderService.checkout(userPrincipal.getId(), shippingInfo);
 
         // Create payment intent
@@ -42,5 +39,24 @@ public class OrderController {
         );
 
         return ResponseEntity.ok(paymentResponse);
+    }
+
+    @PostMapping("/create")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Order> createOrder() {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
+
+        // Create initial order from cart
+        Order order = orderService.createOrderFromCart(userPrincipal.getId());
+        return ResponseEntity.ok(order);
+    }
+
+    @PutMapping("/{orderId}/shipping")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Order> updateShipping(@PathVariable Long orderId,
+                                                @RequestBody ShippingInfo shippingInfo) {
+        Order updatedOrder = orderService.updateShippingInfo(orderId, shippingInfo);
+        return ResponseEntity.ok(updatedOrder);
     }
 }

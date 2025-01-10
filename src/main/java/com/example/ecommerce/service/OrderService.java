@@ -65,4 +65,34 @@ public class OrderService {
 
         return order;
     }
+
+    public Order createOrderFromCart(Long userId) {
+        Cart cart = cartService.getCart(userId);
+        if (cart.getItems().isEmpty()) {
+            throw new RuntimeException("Cart is empty");
+        }
+
+        Order order = new Order();
+        order.setUser(cart.getUser());
+        order.setTotal(cart.getTotal());
+        order.setStatus(OrderStatus.PENDING);
+
+        // Convert cart items to order items
+        for (CartItem cartItem : cart.getItems()) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+            orderItem.setProduct(cartItem.getProduct());
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setPrice(cartItem.getPrice());
+            order.getItems().add(orderItem);
+        }
+
+        return orderRepository.save(order);
+    }
+
+    public Order updateShippingInfo(Long orderId, ShippingInfo shippingInfo) {
+        Order order = getOrder(orderId);
+        order.setShippingInfo(shippingInfo);
+        return orderRepository.save(order);
+    }
 }

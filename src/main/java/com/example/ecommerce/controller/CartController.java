@@ -9,6 +9,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
@@ -49,6 +52,21 @@ public class CartController {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(cartService.removeFromCart(userPrincipal.getId(), productId));
+    }
+
+    @PostMapping("/clear")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<CartResponse> clearCart() {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
+        cartService.clearCart(userPrincipal.getId());
+
+        // Create a new CartResponse and set its properties
+        CartResponse emptyCartResponse = new CartResponse();
+        emptyCartResponse.setItems(new ArrayList<>());
+        emptyCartResponse.setTotal(BigDecimal.ZERO);
+
+        return ResponseEntity.ok(emptyCartResponse);
     }
 }
 
