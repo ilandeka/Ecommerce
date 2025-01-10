@@ -1,10 +1,11 @@
 package com.example.ecommerce.model.entity;
 
+import jakarta.persistence.Embeddable;
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter
-@Setter
+@Embeddable
+@Getter @Setter
 public class ShippingInfo {
     private String fullName;
     private String address;

@@ -33,6 +33,14 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;    // PENDING, PAID, FAILED, REFUNDED
+
+    private String paymentId;          // Stripe Payment Intent ID
+    private BigDecimal totalAmount;    // Amount to be paid
+    private String currency = "USD";   // Default currency
+    private LocalDateTime paidAt;      // When payment was completed
+
     private LocalDateTime createdAt;
 
     @Embedded

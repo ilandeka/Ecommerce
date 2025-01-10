@@ -61,6 +61,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Payment -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>24.5.0</version>
+        </dependency>
+
         <!-- Database -->
         <dependency>
             <groupId>com.mysql</groupId>
