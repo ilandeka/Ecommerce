@@ -8,4 +8,5 @@ import lombok.Setter;
 public class PaymentResponse {
     private String clientSecret;
     private String paymentIntentId;
+    private Long orderId;
 }

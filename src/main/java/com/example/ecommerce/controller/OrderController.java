@@ -29,7 +29,7 @@ public class OrderController {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
-        // Create order with shipping info in one step
+        // Create order
         Order order = orderService.checkout(userPrincipal.getId(), shippingInfo);
 
         // Create payment intent
@@ -37,6 +37,9 @@ public class OrderController {
                 order.getId(),
                 order.getCurrency()
         );
+
+        // Include the orderId in the response
+        paymentResponse.setOrderId(order.getId());
 
         return ResponseEntity.ok(paymentResponse);
     }

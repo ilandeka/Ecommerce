@@ -34,8 +34,7 @@ public class SecurityConfig {
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
-            "/api/products/public/**",
-            "/api/orders/**"
+            "/api/products/public/**"
     };
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
