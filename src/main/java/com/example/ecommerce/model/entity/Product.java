@@ -37,6 +37,7 @@ public class Product {
     @Min(0)
     private Integer stockQuantity;
 
-    private String imageUrl;
+    @Column(nullable = false)
+    private String imageUrl = "/images/default-product.jpg";  // Default image path
 
 }

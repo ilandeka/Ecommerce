@@ -8,13 +8,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
+@Transactional
 public class ProductService {
     private final ProductRepository productRepository;
+    private final ImageService imageService;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, ImageService imageService) {
         this.productRepository = productRepository;
+        this.imageService = imageService;
     }
 
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
@@ -28,15 +32,22 @@ public class ProductService {
                 .orElseThrow(() -> new RuntimeException("Product not found"));
     }
 
-    @Transactional
-    public ProductResponse createProduct(ProductRequest request) {
+    public ProductResponse createProduct(ProductRequest request, MultipartFile image) {
         Product product = new Product();
         updateProductFromRequest(product, request);
-        Product savedProduct = productRepository.save(product);
-        return mapToResponse(savedProduct);
+
+        // Save the product first to get its ID
+        product = productRepository.save(product);
+
+        // Handle image upload if provided, otherwise use default
+        String imageUrl = imageService.saveProductImage(image, product.getId());
+        product.setImageUrl(imageUrl);
+
+        // Save again with the image URL
+        product = productRepository.save(product);
+        return mapToResponse(product);
     }
 
-    @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
@@ -46,9 +57,18 @@ public class ProductService {
         return mapToResponse(savedProduct);
     }
 
-    @Transactional
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
+    }
+
+    public ProductResponse updateProductImage(Long id, MultipartFile image) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        String imageUrl = imageService.saveProductImage(image, id);
+        product.setImageUrl(imageUrl);
+
+        return mapToResponse(productRepository.save(product));
     }
 
     private void updateProductFromRequest(Product product, ProductRequest request) {
@@ -59,7 +79,6 @@ public class ProductService {
         product.setAvailable(request.isAvailable());
     }
 
-    @Transactional
     public void updateStock(Long productId, Integer quantity) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));

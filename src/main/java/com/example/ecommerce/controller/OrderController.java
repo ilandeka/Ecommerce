@@ -1,15 +1,23 @@
 package com.example.ecommerce.controller;
 
+import com.example.ecommerce.model.dto.OrderResponse;
 import com.example.ecommerce.model.dto.PaymentResponse;
 import com.example.ecommerce.model.entity.Order;
 import com.example.ecommerce.model.entity.ShippingInfo;
 import com.example.ecommerce.security.UserPrincipal;
 import com.example.ecommerce.service.OrderService;
 import com.example.ecommerce.service.PaymentService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -44,22 +52,54 @@ public class OrderController {
         return ResponseEntity.ok(paymentResponse);
     }
 
-    @PostMapping("/create")
+    @GetMapping("/my-orders")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<Order> createOrder() {
+    public ResponseEntity<Page<OrderResponse>> getMyOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String[] sort) {
+
+        // Get the authenticated user
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
-        // Create initial order from cart
-        Order order = orderService.createOrderFromCart(userPrincipal.getId());
-        return ResponseEntity.ok(order);
+        // Create pageable request with sorting
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(createSortOrder(sort))
+        );
+
+        // Fetch orders
+        Page<OrderResponse> orders = orderService.getUserOrders(
+                userPrincipal.getId(),
+                pageable
+        );
+
+        return ResponseEntity.ok(orders);
     }
 
-    @PutMapping("/{orderId}/shipping")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<Order> updateShipping(@PathVariable Long orderId,
-                                                @RequestBody ShippingInfo shippingInfo) {
-        Order updatedOrder = orderService.updateShippingInfo(orderId, shippingInfo);
-        return ResponseEntity.ok(updatedOrder);
+    // Helper method to create sort order from string parameters
+    private List<Sort.Order> createSortOrder(String[] sort) {
+        List<Sort.Order> orders = new ArrayList<>();
+
+        if (sort[0].contains(",")) {
+            // sort=[field,direction]
+            for (String sortOrder : sort) {
+                String[] parts = sortOrder.split(",");
+                orders.add(new Sort.Order(
+                        Sort.Direction.fromString(parts[1]),
+                        parts[0]
+                ));
+            }
+        } else {
+            // sort=[field] defaults to desc
+            orders.add(new Sort.Order(
+                    Sort.Direction.DESC,
+                    sort[0]
+            ));
+        }
+
+        return orders;
     }
 }

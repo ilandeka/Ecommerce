@@ -1,8 +1,11 @@
 package com.example.ecommerce.config;
 
-import com.example.ecommerce.model.entity.*;
+import com.example.ecommerce.model.entity.Product;
+import com.example.ecommerce.model.entity.Role;
+import com.example.ecommerce.model.entity.User;
 import com.example.ecommerce.repository.ProductRepository;
 import com.example.ecommerce.repository.UserRepository;
+import com.example.ecommerce.service.ImageService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -17,13 +20,15 @@ public class DataLoader implements CommandLineRunner {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ImageService imageService;
 
     public DataLoader(UserRepository userRepository,
                       ProductRepository productRepository,
-                      PasswordEncoder passwordEncoder) {
+                      PasswordEncoder passwordEncoder, ImageService imageService) {
         this.userRepository = userRepository;
         this.productRepository = productRepository;
         this.passwordEncoder = passwordEncoder;
+        this.imageService = imageService;
     }
 
     @Override
@@ -68,6 +73,7 @@ public class DataLoader implements CommandLineRunner {
         laptop.setPrice(new BigDecimal("1299.99"));
         laptop.setStockQuantity(10);
         laptop.setAvailable(true);
+        laptop.setImageUrl(imageService.getDefaultImageUrl());
         productRepository.save(laptop);
 
         Product smartphone = new Product();
@@ -76,6 +82,7 @@ public class DataLoader implements CommandLineRunner {
         smartphone.setPrice(new BigDecimal("899.99"));
         smartphone.setStockQuantity(15);
         smartphone.setAvailable(true);
+        smartphone.setImageUrl(imageService.getDefaultImageUrl());
         productRepository.save(smartphone);
 
         Product headphones = new Product();
@@ -84,6 +91,7 @@ public class DataLoader implements CommandLineRunner {
         headphones.setPrice(new BigDecimal("199.99"));
         headphones.setStockQuantity(20);
         headphones.setAvailable(true);
+        headphones.setImageUrl(imageService.getDefaultImageUrl());
         productRepository.save(headphones);
     }
 }
