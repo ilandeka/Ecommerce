@@ -33,7 +33,6 @@ public class Product {
     @NotNull
     private boolean available = true;
 
-    // Getters and setters
     @NotNull
     @Min(0)
     private Integer stockQuantity;
