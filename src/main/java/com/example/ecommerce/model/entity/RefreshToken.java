@@ -30,5 +30,4 @@ public class RefreshToken {
     public boolean isExpired() {
         return Instant.now().isAfter(expiryDate);
     }
-
 }

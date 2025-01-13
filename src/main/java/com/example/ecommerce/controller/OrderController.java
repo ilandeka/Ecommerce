@@ -7,6 +7,7 @@ import com.example.ecommerce.model.entity.ShippingInfo;
 import com.example.ecommerce.security.UserPrincipal;
 import com.example.ecommerce.service.OrderService;
 import com.example.ecommerce.service.PaymentService;
+import com.example.ecommerce.util.SortingUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,13 +17,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
-
     private final OrderService orderService;
     private final PaymentService paymentService;
 
@@ -57,49 +54,24 @@ public class OrderController {
     public ResponseEntity<Page<OrderResponse>> getMyOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt,desc") String[] sort) {
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
 
-        // Get the authenticated user
+        String[] sortParams = sort.split(",");
+        // Validate the sort field using the utility class
+        SortingUtils.validateSortField(sortParams[0], SortingUtils.ALLOWED_ORDER_FIELDS);
+
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
-        // Create pageable request with sorting
-        Pageable pageable = PageRequest.of(
-                page,
-                size,
-                Sort.by(createSortOrder(sort))
-        );
+        // Create sort using the utility class
+        Sort sorting = SortingUtils.createSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sorting);
 
-        // Fetch orders
         Page<OrderResponse> orders = orderService.getUserOrders(
                 userPrincipal.getId(),
                 pageable
         );
 
         return ResponseEntity.ok(orders);
-    }
-
-    // Helper method to create sort order from string parameters
-    private List<Sort.Order> createSortOrder(String[] sort) {
-        List<Sort.Order> orders = new ArrayList<>();
-
-        if (sort[0].contains(",")) {
-            // sort=[field,direction]
-            for (String sortOrder : sort) {
-                String[] parts = sortOrder.split(",");
-                orders.add(new Sort.Order(
-                        Sort.Direction.fromString(parts[1]),
-                        parts[0]
-                ));
-            }
-        } else {
-            // sort=[field] defaults to desc
-            orders.add(new Sort.Order(
-                    Sort.Direction.DESC,
-                    sort[0]
-            ));
-        }
-
-        return orders;
     }
 }

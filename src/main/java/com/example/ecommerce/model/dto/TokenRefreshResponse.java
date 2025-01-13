@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TokenRefreshResponse {
-
     private String accessToken;
     private String refreshToken;
     private String tokenType = "Bearer";
@@ -15,5 +14,4 @@ public class TokenRefreshResponse {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
     }
-
 }

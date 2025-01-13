@@ -53,5 +53,4 @@ public class User {
     protected void onCreate() {
         createdAt = Instant.now();
     }
-
 }

@@ -39,5 +39,4 @@ public class Product {
 
     @Column(nullable = false)
     private String imageUrl = "/images/default-product.jpg";  // Default image path
-
 }

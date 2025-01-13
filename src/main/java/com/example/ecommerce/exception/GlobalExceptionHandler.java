@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException e) {
         return ResponseEntity

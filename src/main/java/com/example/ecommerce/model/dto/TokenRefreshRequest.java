@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TokenRefreshRequest {
-
     private String refreshToken;
 
     // Default constructor is required for JSON deserialization
@@ -16,5 +15,4 @@ public class TokenRefreshRequest {
     public TokenRefreshRequest(String refreshToken) {
         this.refreshToken = refreshToken;
     }
-
 }

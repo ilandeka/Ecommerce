@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 @Setter
 @Getter
 public class ProductResponse {
-
     private Long id;
     private String name;
     private String description;
@@ -24,5 +23,4 @@ public class ProductResponse {
         this.stockQuantity = stockQuantity;
         this.available = available;
     }
-
 }

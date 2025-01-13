@@ -9,7 +9,6 @@ import lombok.Setter;
 @Setter
 @Getter
 public class RegisterRequest {
-
     @NotBlank
     private String fullName;
 
@@ -18,5 +17,4 @@ public class RegisterRequest {
 
     @NotBlank @Size(min = 8)
     private String password;
-
 }
