@@ -26,6 +26,9 @@ public class ProductController {
 
     @GetMapping("/public")
     public Page<ProductResponse> getAllProducts(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
 
         // Validate sort field
@@ -34,9 +37,9 @@ public class ProductController {
 
         // Create sort using the simpler method
         Sort sorting = SortingUtils.createSort(sort);
-        Pageable pageable = PageRequest.of(0, 20, sorting);
+        Pageable pageable = PageRequest.of(page, size, sorting);
 
-        return productService.getAllProducts(pageable);
+        return productService.getAllProducts(search, pageable);
     }
 
     @GetMapping("/public/{id}")

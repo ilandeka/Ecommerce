@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -22,7 +23,9 @@ public class ProductService {
         this.imageService = imageService;
     }
 
-    public Page<ProductResponse> getAllProducts(Pageable pageable) {
+    public Page<ProductResponse> getAllProducts(String search, Pageable pageable) {
+        Page<Product> productPage;
+
         // Validate that sort fields are allowed
         if (pageable.getSort().isSorted()) {
             pageable.getSort().forEach(order -> {
@@ -37,9 +40,15 @@ public class ProductService {
             });
         }
 
-        // Fetch products with sorting
-        return productRepository.findAll(pageable)
-                .map(this::mapToResponse);
+        if (StringUtils.hasText(search)) {
+            // If search term provided, use search method
+            productPage = productRepository.searchProducts(search, pageable);
+        } else {
+            // If no search term, get all products
+            productPage = productRepository.findAll(pageable);
+        }
+
+        return productPage.map(this::mapToResponse);
     }
 
     public ProductResponse getProduct(Long id) {

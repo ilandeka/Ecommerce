@@ -102,5 +102,50 @@ public class DataLoader implements CommandLineRunner {
         software.setAvailable(true);
         software.setImageUrl(imageService.getDefaultImageUrl());
         productRepository.save(software);
+
+        Product one = new Product();
+        one.setName("One Laptop");
+        one.setDescription("High-performance gaming laptop with RTX 3080");
+        one.setPrice(new BigDecimal("129.99"));
+        one.setStockQuantity(10);
+        one.setAvailable(true);
+        one.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(one);
+
+        Product two = new Product();
+        two.setName("Two Laptop");
+        two.setDescription("High-performance gaming laptop with RTX 3080");
+        two.setPrice(new BigDecimal("9.99"));
+        two.setStockQuantity(10);
+        two.setAvailable(true);
+        two.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(two);
+
+        Product three = new Product();
+        three.setName("Three Laptop");
+        three.setDescription("High-performance gaming laptop with RTX 3080");
+        three.setPrice(new BigDecimal("12.99"));
+        three.setStockQuantity(10);
+        three.setAvailable(true);
+        three.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(three);
+
+        Product four = new Product();
+        four.setName("Four Laptop");
+        four.setDescription("High-performance gaming laptop with RTX 3080");
+        four.setPrice(new BigDecimal("29.99"));
+        four.setStockQuantity(10);
+        four.setAvailable(true);
+        four.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(four);
+
+        Product five = new Product();
+        five.setName("Five Laptop");
+        five.setDescription("High-performance gaming laptop with RTX 3080");
+        five.setPrice(new BigDecimal("299.99"));
+        five.setStockQuantity(10);
+        five.setAvailable(true);
+        five.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(five);
     }
 }
