@@ -93,5 +93,14 @@ public class DataLoader implements CommandLineRunner {
         headphones.setAvailable(true);
         headphones.setImageUrl(imageService.getDefaultImageUrl());
         productRepository.save(headphones);
+
+        Product software = new Product();
+        software.setName("Software X");
+        software.setDescription("Operating System X");
+        software.setPrice(new BigDecimal("99.99"));
+        software.setStockQuantity(30);
+        software.setAvailable(true);
+        software.setImageUrl(imageService.getDefaultImageUrl());
+        productRepository.save(software);
     }
 }

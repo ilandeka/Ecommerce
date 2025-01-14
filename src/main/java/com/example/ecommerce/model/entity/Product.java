@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Setter
 @Getter
@@ -39,4 +40,12 @@ public class Product {
 
     @Column(nullable = false)
     private String imageUrl = "/images/default-product.jpg";  // Default image path
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }

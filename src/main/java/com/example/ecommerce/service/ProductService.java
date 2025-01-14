@@ -4,6 +4,7 @@ import com.example.ecommerce.model.dto.ProductRequest;
 import com.example.ecommerce.model.dto.ProductResponse;
 import com.example.ecommerce.model.entity.Product;
 import com.example.ecommerce.repository.ProductRepository;
+import com.example.ecommerce.util.SortingUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,21 @@ public class ProductService {
     }
 
     public Page<ProductResponse> getAllProducts(Pageable pageable) {
+        // Validate that sort fields are allowed
+        if (pageable.getSort().isSorted()) {
+            pageable.getSort().forEach(order -> {
+                String property = order.getProperty();
+                if (!SortingUtils.ALLOWED_PRODUCT_FIELDS.contains(property)) {
+                    throw new IllegalArgumentException(
+                            "Invalid sort field: " + property +
+                                    ". Allowed fields are: " +
+                                    SortingUtils.ALLOWED_PRODUCT_FIELDS
+                    );
+                }
+            });
+        }
+
+        // Fetch products with sorting
         return productRepository.findAll(pageable)
                 .map(this::mapToResponse);
     }
@@ -57,14 +73,14 @@ public class ProductService {
         return mapToResponse(savedProduct);
     }
 
-    public void deleteProduct(Long id) {
-        productRepository.deleteById(id);
-    }
-
     public ProductResponse updateProductImage(Long id, MultipartFile image) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
+        // Delete old image if it exists and isn't the default
+        imageService.deleteProductImage(product.getImageUrl());
+
+        // Save new image
         String imageUrl = imageService.saveProductImage(image, id);
         product.setImageUrl(imageUrl);
 
@@ -92,6 +108,18 @@ public class ProductService {
         productRepository.save(product);
     }
 
+    public void deleteProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        // Delete product image if it's not the default
+        if (!imageService.isDefaultImage(product.getImageUrl())) {
+            imageService.deleteProductImage(product.getImageUrl());
+        }
+
+        productRepository.delete(product);
+    }
+
     private ProductResponse mapToResponse(Product product) {
         return new ProductResponse(
                 product.getId(),
@@ -99,7 +127,8 @@ public class ProductService {
                 product.getDescription(),
                 product.getPrice(),
                 product.getStockQuantity(),
-                product.isAvailable()
+                product.isAvailable(),
+                product.getImageUrl()
         );
     }
 }

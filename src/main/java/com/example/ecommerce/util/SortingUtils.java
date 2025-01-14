@@ -16,6 +16,7 @@ public class SortingUtils {
         }
     }
 
+    // Method 1: Simple single-field sorting
     public static Sort createSort(String sortParam) {
         String[] parts = sortParam.split(",");
         String field = parts[0];
@@ -25,6 +26,7 @@ public class SortingUtils {
         return Sort.by(direction, field);
     }
 
+    // Method 2: Multiple-field sorting
     public static List<Sort.Order> createSortOrders(String[] sortParams) {
         List<Sort.Order> orders = new ArrayList<>();
 

@@ -3,9 +3,12 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.model.dto.ProductRequest;
 import com.example.ecommerce.model.dto.ProductResponse;
 import com.example.ecommerce.service.ProductService;
+import com.example.ecommerce.util.SortingUtils;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,7 +25,17 @@ public class ProductController {
     }
 
     @GetMapping("/public")
-    public Page<ProductResponse> getAllProducts(Pageable pageable) {
+    public Page<ProductResponse> getAllProducts(
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
+
+        // Validate sort field
+        String field = sort.split(",")[0];
+        SortingUtils.validateSortField(field, SortingUtils.ALLOWED_PRODUCT_FIELDS);
+
+        // Create sort using the simpler method
+        Sort sorting = SortingUtils.createSort(sort);
+        Pageable pageable = PageRequest.of(0, 20, sorting);
+
         return productService.getAllProducts(pageable);
     }
 

@@ -34,7 +34,9 @@ public class SecurityConfig {
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
-            "/api/products/public/**"
+            "/api/products/public/**",
+            "/images/**",          // Allow access to default images
+            "/uploads/**"          // Allow access to uploaded images
     };
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,

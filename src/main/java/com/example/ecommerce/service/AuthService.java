@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -126,11 +127,19 @@ public class AuthService {
         RefreshToken refreshToken = refreshTokenService
                 .createRefreshToken(user.getId());
 
-        // Return complete authentication response
-        return new AuthResponse(accessToken,
+        // Convert roles from the User entity to a Set of strings
+        Set<String> roles = user.getRoles().stream()
+                .map(Role::name)
+                .collect(Collectors.toSet());
+
+        // Return complete authentication response with roles
+        return new AuthResponse(
+                accessToken,
                 refreshToken.getToken(),
                 user.getEmail(),
-                user.getFullName());
+                user.getFullName(),
+                roles
+        );
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -201,7 +210,8 @@ public class AuthService {
                 accessToken,
                 refreshToken.getToken(),
                 user.getEmail(),
-                user.getFullName()
+                user.getFullName(),
+                Collections.singleton(user.getRoles().toString())
         );
     }
 
