@@ -67,7 +67,8 @@ public class AuthService {
         // Authenticate and generate tokens
         return authenticateAndGenerateResponse(request.getEmail(),
                 request.getPassword(),
-                user);
+                user,
+                false);
     }
 
     // Admin registration
@@ -85,7 +86,8 @@ public class AuthService {
         // Authenticate and generate tokens
         return authenticateAndGenerateResponse(request.getEmail(),
                 request.getPassword(),
-                user);
+                user,
+                false);
     }
 
     // Helper method to validate admin registration code
@@ -114,7 +116,7 @@ public class AuthService {
     }
 
     // Helper method to authenticate user and generate tokens
-    private AuthResponse authenticateAndGenerateResponse(String email, String password, User user) {
+    private AuthResponse authenticateAndGenerateResponse(String email, String password, User user, boolean rememberMe) {
         // Create authentication token with credentials
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)
@@ -124,8 +126,10 @@ public class AuthService {
         String accessToken = tokenProvider.generateToken(authentication);
 
         // Generate refresh token
-        RefreshToken refreshToken = refreshTokenService
-                .createRefreshToken(user.getId());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(
+                user.getId(),
+                rememberMe
+        );
 
         // Convert roles from the User entity to a Set of strings
         Set<String> roles = user.getRoles().stream()
@@ -144,21 +148,41 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         try {
-            // First, verify that the user exists
             User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new AuthenticationException("Invalid credentials"));
+                    .orElseThrow(() -> new AuthenticationException("User not found"));
 
-            // Attempt authentication with the provided credentials
-            Authentication authentication = authenticateUser(
-                    request.getEmail(),
-                    request.getPassword()
+            // Verify user exists and credentials are valid
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
             );
 
-            // If authentication succeeded, generate the tokens and response
-            return generateAuthResponse(authentication, user);
+            // Generate tokens with remember me preference
+            String accessToken = tokenProvider.generateToken(authentication);
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(
+                    user.getId(),
+                    request.isRememberMe()
+            );
 
-        } catch (AuthenticationException e) {
-            // Log the failed attempt but don't expose specific failure reasons
+            // Update last login
+            user.setLastLogin(Instant.now());
+            userRepository.save(user);
+
+            // Convert roles properly using stream
+            Set<String> roles = user.getRoles().stream()
+                    .map(Role::name)
+                    .collect(Collectors.toSet());
+
+            return new AuthResponse(
+                    accessToken,
+                    refreshToken.getToken(),
+                    user.getEmail(),
+                    user.getFullName(),
+                    roles
+            );
+        } catch (Exception e) {
             logger.warn("Failed login attempt for user: {}", request.getEmail());
             throw new AuthenticationException("Invalid credentials");
         }
@@ -183,38 +207,6 @@ public class AuthService {
         }
     }
 
-    // Helper method for user authentication
-    private Authentication authenticateUser(String email, String password) {
-        try {
-            return authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(email, password)
-            );
-        } catch (AuthenticationException e) {
-            logger.warn("Authentication failed for user: {}", email);
-            throw new AuthenticationException("Invalid credentials");
-        }
-    }
-
-    // Helper method to generate authentication response
-    private AuthResponse generateAuthResponse(Authentication authentication, User user) {
-        // Generate access token
-        String accessToken = tokenProvider.generateToken(authentication);
-
-        // Generate new refresh token, deleting any existing ones
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-
-        // Update last login timestamp
-        updateLastLogin(user);
-
-        return new AuthResponse(
-                accessToken,
-                refreshToken.getToken(),
-                user.getEmail(),
-                user.getFullName(),
-                Collections.singleton(user.getRoles().toString())
-        );
-    }
-
     // Helper method to validate refresh token
     private RefreshToken validateRefreshToken(String token) {
         return refreshTokenService.findByToken(token)
@@ -231,11 +223,5 @@ public class AuthService {
                 null,
                 userDetails.getAuthorities()
         );
-    }
-
-    // Helper method to update last login timestamp
-    private void updateLastLogin(User user) {
-        user.setLastLogin(Instant.now());
-        userRepository.save(user);
     }
 }

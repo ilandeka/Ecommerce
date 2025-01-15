@@ -25,6 +25,9 @@ public class RefreshToken {
     @Column(nullable = false)
     private Instant expiryDate;
 
+    @Column(nullable = false)
+    private boolean isRemembered = false;  // New field
+
     private String deviceInfo;  // Store device information for security
 
     public boolean isExpired() {

@@ -17,6 +17,9 @@ public class RefreshTokenService {
     @Value("${jwt.refresh.expiration}")
     private Long refreshTokenDurationMs;
 
+    @Value("${jwt.refresh.remember-me-expiration}")
+    private Long rememberMeDurationMs;
+
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
 
@@ -31,14 +34,18 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public RefreshToken createRefreshToken(Long userId) {
+    public RefreshToken createRefreshToken(Long userId, boolean rememberMe) {
         // Delete any existing refresh tokens for this user
         refreshTokenRepository.deleteByUserId(userId);
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found")));
-        refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
+
+        // Set expiration based on remember me option
+        long expirationMs = rememberMe ? rememberMeDurationMs : refreshTokenDurationMs;
+        refreshToken.setExpiryDate(Instant.now().plusMillis(expirationMs));
+        refreshToken.setRemembered(rememberMe);
         refreshToken.setToken(UUID.randomUUID().toString());
 
         return refreshTokenRepository.save(refreshToken);
