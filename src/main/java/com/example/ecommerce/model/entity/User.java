@@ -45,6 +45,12 @@ public class User {
     private String resetToken;
     private Instant resetTokenExpiry;
 
+    public boolean isResetTokenValid() {
+        return resetToken != null &&
+                resetTokenExpiry != null &&
+                resetTokenExpiry.isAfter(Instant.now());
+    }
+
     // Track account activity
     private Instant lastLogin;
     private Instant createdAt;

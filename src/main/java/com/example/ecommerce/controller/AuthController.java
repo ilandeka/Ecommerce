@@ -3,6 +3,7 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.model.dto.*;
 import com.example.ecommerce.security.UserPrincipal;
 import com.example.ecommerce.service.AuthService;
+import com.example.ecommerce.service.PasswordResetService;
 import com.example.ecommerce.service.RefreshTokenService;
 import com.example.ecommerce.service.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,11 +24,13 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService, RefreshTokenService refreshTokenService, TokenBlacklistService tokenBlacklistService) {
+    public AuthController(AuthService authService, RefreshTokenService refreshTokenService, TokenBlacklistService tokenBlacklistService, PasswordResetService passwordResetService) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.passwordResetService = passwordResetService;
     }
 
     @GetMapping("/me")
@@ -110,5 +113,20 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse(false, "Error during logout: " + e.getMessage()));
         }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.initiatePasswordReset(request.getEmail());
+        return ResponseEntity.ok(new ApiResponse(true,
+                "If an account exists with that email, a password reset link has been sent"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
+        return ResponseEntity.ok(new ApiResponse(true, "Password successfully reset"));
     }
 }
