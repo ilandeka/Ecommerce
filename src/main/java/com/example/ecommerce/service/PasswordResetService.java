@@ -32,6 +32,12 @@ public class PasswordResetService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
+    @Value("${spring.mail.properties.mail.from.name}")
+    private String senderName;
+
+    @Value("${spring.mail.properties.mail.from.address}")
+    private String senderEmail;
+
     public PasswordResetService(UserRepository userRepository, PasswordEncoder passwordEncoder, JavaMailSender emailSender) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -99,7 +105,7 @@ public class PasswordResetService {
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(email);
-            message.setFrom("e-commerce@e-commerce.com");
+            message.setFrom(String.format("%s <%s>", senderName, senderEmail));
             message.setSubject("Password Reset Request");
             message.setText("Click the following link to reset your password: " + resetLink +
                     "\n\nThis link will expire in 1 hour.");
