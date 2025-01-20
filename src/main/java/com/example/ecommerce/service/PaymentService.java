@@ -2,9 +2,7 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.config.WebhookConfig;
 import com.example.ecommerce.model.dto.PaymentResponse;
-import com.example.ecommerce.model.entity.Order;
-import com.example.ecommerce.model.entity.OrderStatus;
-import com.example.ecommerce.model.entity.PaymentStatus;
+import com.example.ecommerce.model.entity.*;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
@@ -19,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -35,12 +35,26 @@ public class PaymentService {
         this.webhookConfig = webhookConfig;
     }
 
-    public PaymentResponse createPaymentIntent(Long orderId, String currency) {
+    public PaymentResponse createPaymentIntent(Long orderId, String currency, ShippingInfo shippingInfo) {
         try {
             // Get order
             Order order = orderService.getOrder(orderId);
 
-            // Create payment intent
+            // Create shipping params for Stripe
+            PaymentIntentCreateParams.Shipping shipping = PaymentIntentCreateParams.Shipping.builder()
+                    .setName(shippingInfo.getFullName())
+                    .setAddress(
+                            PaymentIntentCreateParams.Shipping.Address.builder()
+                                    .setLine1(shippingInfo.getAddress())
+                                    .setCity(shippingInfo.getCity())
+                                    .setState(shippingInfo.getState())
+                                    .setPostalCode(shippingInfo.getZipCode())
+                                    .setCountry("US")  // Make this configurable
+                                    .build()
+                    )
+                    .build();
+
+            // Create payment intent with shipping info
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(order.getTotal().multiply(new BigDecimal("100")).longValue()) // Convert to cents
                     .setCurrency(currency.toLowerCase())
@@ -50,9 +64,18 @@ public class PaymentService {
                                     .build()
                     )
                     .putMetadata("orderId", orderId.toString())
+                    .putMetadata("orderItems", formatOrderItems(order.getItems()))
+                    .putMetadata("customerName", order.getUser().getFullName())
+                    .putMetadata("customerEmail", order.getUser().getEmail())
+                    .setShipping(shipping)  // Add shipping info to payment intent
+                    .setDescription("Order #" + orderId)  // Add order description
                     .build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
+
+            // Store the payment intent ID with the order
+            order.setPaymentId(paymentIntent.getId());
+            orderService.save(order);
 
             // Create response
             PaymentResponse response = new PaymentResponse();
@@ -61,6 +84,7 @@ public class PaymentService {
 
             return response;
         } catch (StripeException e) {
+            logger.error("Error creating payment intent for order: {}", orderId, e);
             throw new RuntimeException("Error creating payment intent", e);
         }
     }
@@ -109,6 +133,13 @@ public class PaymentService {
 
         try {
             Order order = orderService.getOrder(Long.valueOf(orderId));
+
+            // Verify this is the correct payment intent for this order
+            if (!paymentIntent.getId().equals(order.getPaymentId())) {
+                logger.error("Payment intent ID mismatch for order: {}", orderId);
+                return;
+            }
+
             order.setStatus(OrderStatus.PROCESSING);  // Order status changes to processing
             order.setPaymentStatus(PaymentStatus.PAID);  // Payment status changes to paid
             order.setPaymentId(paymentIntent.getId());
@@ -166,5 +197,11 @@ public class PaymentService {
             logger.error("Error processing refund", e);
             throw new RuntimeException("Failed to process refund", e);
         }
+    }
+
+    private String formatOrderItems(List<OrderItem> items) {
+        return items.stream()
+                .map(item -> String.format("%dx %s", item.getQuantity(), item.getProduct().getName()))
+                .collect(Collectors.joining(", "));
     }
 }

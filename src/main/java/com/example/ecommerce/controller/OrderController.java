@@ -34,13 +34,14 @@ public class OrderController {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
-        // Create order
+        // Create order with shipping info
         Order order = orderService.checkout(userPrincipal.getId(), shippingInfo);
 
-        // Create payment intent
+        // Create a single payment intent with shipping info
         PaymentResponse paymentResponse = paymentService.createPaymentIntent(
                 order.getId(),
-                order.getCurrency()
+                order.getCurrency(),
+                shippingInfo  // Pass shipping info to payment service
         );
 
         // Include the orderId in the response
