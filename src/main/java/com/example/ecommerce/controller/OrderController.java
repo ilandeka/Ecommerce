@@ -1,9 +1,9 @@
 package com.example.ecommerce.controller;
 
+import com.example.ecommerce.model.dto.CheckoutRequest;
 import com.example.ecommerce.model.dto.OrderResponse;
 import com.example.ecommerce.model.dto.PaymentResponse;
 import com.example.ecommerce.model.entity.Order;
-import com.example.ecommerce.model.entity.ShippingInfo;
 import com.example.ecommerce.security.UserPrincipal;
 import com.example.ecommerce.service.OrderService;
 import com.example.ecommerce.service.PaymentService;
@@ -30,18 +30,18 @@ public class OrderController {
 
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<PaymentResponse> checkout(@RequestBody ShippingInfo shippingInfo) {
+    public ResponseEntity<PaymentResponse> checkout(@RequestBody CheckoutRequest request) {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
         // Create order with shipping info
-        Order order = orderService.checkout(userPrincipal.getId(), shippingInfo);
+        Order order = orderService.checkout(userPrincipal.getId(), request.getShippingInfo());
 
-        // Create a single payment intent with shipping info
+        // Create payment intent with shipping info
         PaymentResponse paymentResponse = paymentService.createPaymentIntent(
                 order.getId(),
                 order.getCurrency(),
-                shippingInfo  // Pass shipping info to payment service
+                request.getShippingInfo()
         );
 
         // Include the orderId in the response

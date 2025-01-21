@@ -37,8 +37,16 @@ public class PaymentService {
 
     public PaymentResponse createPaymentIntent(Long orderId, String currency, ShippingInfo shippingInfo) {
         try {
+            logger.info("Creating payment intent for order {} with shipping info: {}", orderId, shippingInfo);
+
             // Get order
             Order order = orderService.getOrder(orderId);
+
+            // Validate shipping info
+            if (shippingInfo == null) {
+                logger.error("Shipping info is null for order {}", orderId);
+                throw new IllegalArgumentException("Shipping information is required");
+            }
 
             // Create shipping params for Stripe
             PaymentIntentCreateParams.Shipping shipping = PaymentIntentCreateParams.Shipping.builder()
