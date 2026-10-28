@@ -35,3 +35,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Product images uploaded while running locally ###
+uploads/

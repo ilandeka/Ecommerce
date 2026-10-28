@@ -1,0 +1,15 @@
+# Keep the Docker build context small and free of local or CI-only files
+.git
+.github
+.idea
+.vscode
+deploy
+target
+uploads
+*.md
+**/*.log
+.env
+.env.*
+
+# Local settings: only on the developer machine, never in an image
+src/main/resources/application-dev.properties

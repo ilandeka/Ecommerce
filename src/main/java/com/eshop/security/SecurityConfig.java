@@ -38,6 +38,7 @@ public class SecurityConfig {
             "/api/products/**",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
+            "/api/payments/webhook",  // Called by Stripe, not by a signed-in user; the handler verifies the signature
             "/images/**",  // Allow access to default images
             "/uploads/**"  // Allow access to uploaded images
     };
@@ -93,7 +94,11 @@ public class SecurityConfig {
                 "Origin",              // Required for CORS
                 "Access-Control-Request-Method",  // Required for preflight requests
                 "Access-Control-Request-Headers", // Required for preflight requests
-                "X-Requested-With"     // For XMLHttpRequest/AJAX requests
+                "X-Requested-With",    // For XMLHttpRequest/AJAX requests
+                // The frontend sends these on the auth calls so nothing caches them (src/services/api.ts)
+                "Cache-Control",
+                "Pragma",
+                "Expires"
         ));
         configuration.setExposedHeaders(Collections.singletonList("Authorization"));
         configuration.setAllowCredentials(true);
