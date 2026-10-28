@@ -71,6 +71,13 @@ public class GlobalExceptionHandler {
                 .body(new ApiResponse(false, "Password reset token is invalid or has expired"));
     }
 
+    @ExceptionHandler(InvalidWebhookSignatureException.class)
+    public ResponseEntity<ApiResponse> handleInvalidWebhookSignatureException(InvalidWebhookSignatureException e) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse(false, "Invalid webhook signature"));
+    }
+
     @ExceptionHandler(PasswordMismatchException.class)
     public ResponseEntity<ApiResponse> handlePasswordMismatchException(PasswordMismatchException e) {
         return ResponseEntity

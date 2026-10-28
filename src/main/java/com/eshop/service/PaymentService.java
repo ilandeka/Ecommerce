@@ -1,6 +1,7 @@
 package com.eshop.service;
 
 import com.eshop.config.WebhookConfig;
+import com.eshop.exception.InvalidWebhookSignatureException;
 import com.eshop.model.dto.PaymentResponse;
 import com.eshop.model.entity.*;
 import com.stripe.exception.SignatureVerificationException;
@@ -124,8 +125,8 @@ public class PaymentService {
                     logger.info("Unhandled event type: {}", event.getType());
             }
         } catch (SignatureVerificationException e) {
-            logger.error("Invalid webhook signature", e);
-            throw new RuntimeException("Invalid webhook signature");
+            logger.warn("Invalid webhook signature: {}", e.getMessage());
+            throw new InvalidWebhookSignatureException("Invalid webhook signature");
         } catch (Exception e) {
             logger.error("Error processing webhook", e);
             throw new RuntimeException("Error processing webhook");
