@@ -35,8 +35,10 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createRefreshToken(Long userId, boolean rememberMe) {
-        // Delete any existing refresh tokens for this user
+        // Delete any existing refresh tokens for this user. Flush so the DELETE reaches the database before the INSERT
+        // below: Hibernate inserts first, and user_id is unique, so signing in again without signing out failed.
         refreshTokenRepository.deleteByUserId(userId);
+        refreshTokenRepository.flush();
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(userRepository.findById(userId)

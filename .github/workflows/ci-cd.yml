@@ -1,0 +1,327 @@
+name: CI/CD
+
+# Pull requests: build, run the tests and check that the Docker image builds.
+# Pushes to master: the same checks, then deploy to Google Cloud Run (once deploy/gcp/config.env is filled in).
+# Authentication to Google Cloud is keyless (Workload Identity Federation): there is no service account key
+# anywhere in this repository or in GitHub secrets.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      # The Spring context tests (profile "test") need a real PostgreSQL; the defaults in
+      # src/test/resources/application-test.properties point at localhost:5434/ecommerce with these credentials.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ecommerce
+          POSTGRES_USER: ecommerce
+          POSTGRES_PASSWORD: ecommerce
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U ecommerce"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build and run the tests
+        run: ./mvnw -B -ntp verify
+
+  docker-build:
+    name: Docker image builds
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  config:
+    name: Read deployment settings
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.cfg.outputs.enabled }}
+      project_id: ${{ steps.cfg.outputs.project_id }}
+      region: ${{ steps.cfg.outputs.region }}
+      wif_provider: ${{ steps.cfg.outputs.wif_provider }}
+      deployer_sa: ${{ steps.cfg.outputs.deployer_sa }}
+      runtime_sa: ${{ steps.cfg.outputs.runtime_sa }}
+      cloud_sql: ${{ steps.cfg.outputs.cloud_sql }}
+      image_repo: ${{ steps.cfg.outputs.image_repo }}
+      site_url: ${{ steps.cfg.outputs.site_url }}
+      frontend_url: ${{ steps.cfg.outputs.frontend_url }}
+      cors_origins: ${{ steps.cfg.outputs.cors_origins }}
+      min_instances: ${{ steps.cfg.outputs.min_instances }}
+      stripe_enabled: ${{ steps.cfg.outputs.stripe_enabled }}
+      mail_account_enabled: ${{ steps.cfg.outputs.mail_account_enabled }}
+      mail_username: ${{ steps.cfg.outputs.mail_username }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: deploy/gcp
+          persist-credentials: false
+      - id: cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . deploy/gcp/config.env
+          set +a
+
+          if [ -z "${GCP_PROJECT_ID:-}" ] || [ -z "${GCP_PROJECT_NUMBER:-}" ] || [ -z "${ECOMMERCE_SITE_ID:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::deploy/gcp/config.env is not filled in yet, so nothing is deployed. Run deploy/gcp/bootstrap.sh and commit the values it prints."
+            exit 0
+          fi
+
+          region="${GCP_REGION:-europe-west1}"
+          site_url="https://${ECOMMERCE_SITE_ID}.web.app"
+          frontend_url="${ECOMMERCE_PUBLIC_URL:-$site_url}"
+          cors="${site_url},https://${ECOMMERCE_SITE_ID}.firebaseapp.com"
+          if [ "$frontend_url" != "$site_url" ]; then
+            cors="${cors},${frontend_url}"
+          fi
+
+          {
+            echo "enabled=true"
+            echo "project_id=${GCP_PROJECT_ID}"
+            echo "region=${region}"
+            echo "wif_provider=projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/github"
+            echo "deployer_sa=gh-deployer@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            echo "runtime_sa=ecommerce-api@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            echo "cloud_sql=${GCP_PROJECT_ID}:${region}:demo-pg"
+            echo "image_repo=${region}-docker.pkg.dev/${GCP_PROJECT_ID}/demo/ecommerce-api"
+            echo "site_url=${site_url}"
+            echo "frontend_url=${frontend_url}"
+            echo "cors_origins=${cors}"
+            echo "min_instances=${CLOUD_RUN_MIN_INSTANCES:-1}"
+            echo "stripe_enabled=${STRIPE_ENABLED:-false}"
+            echo "mail_account_enabled=${MAIL_ACCOUNT_ENABLED:-false}"
+            echo "mail_username=${MAIL_USERNAME:-}"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: [test, config]
+    if: needs.config.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-ecommerce-api
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ needs.config.outputs.project_id }}
+      REGION: ${{ needs.config.outputs.region }}
+      RUNTIME_SA: ${{ needs.config.outputs.runtime_sa }}
+      CLOUD_SQL: ${{ needs.config.outputs.cloud_sql }}
+      IMAGE: ${{ needs.config.outputs.image_repo }}:${{ github.sha }}
+      SITE_URL: ${{ needs.config.outputs.site_url }}
+      FRONTEND_URL: ${{ needs.config.outputs.frontend_url }}
+      CORS_ORIGINS: ${{ needs.config.outputs.cors_origins }}
+      MIN_INSTANCES: ${{ needs.config.outputs.min_instances }}
+      STRIPE_ENABLED: ${{ needs.config.outputs.stripe_enabled }}
+      MAIL_ACCOUNT_ENABLED: ${{ needs.config.outputs.mail_account_enabled }}
+      MAIL_ACCOUNT_USERNAME: ${{ needs.config.outputs.mail_username }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ needs.config.outputs.wif_provider }}
+          service_account: ${{ needs.config.outputs.deployer_sa }}
+          token_format: access_token
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ needs.config.outputs.region }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build and push the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prepare runtime settings
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          secrets="DB_PASS=ecommerce-db-password:latest,JWT_SECRET=ecommerce-jwt-secret:latest,ADMIN_CODE=ecommerce-admin-code:latest"
+          # Stripe in test mode: the secret key and the webhook signing secret (bootstrap.sh stripe). With the switch
+          # off, checkout does not work in the demo; everything else does.
+          if [ "$STRIPE_ENABLED" = "true" ]; then
+            secrets="${secrets},STRIPE_SECRET_KEY=ecommerce-stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=ecommerce-stripe-webhook-secret:latest"
+          fi
+          # Outgoing email (password resets) from the Gmail account in config.env, with its app password from Secret
+          # Manager. With the switch off, the demo cannot send email.
+          mail_account_on=false
+          if [ "$MAIL_ACCOUNT_ENABLED" = "true" ] && [ -n "$MAIL_ACCOUNT_USERNAME" ]; then
+            mail_account_on=true
+            secrets="${secrets},MAIL_PASSWORD=ecommerce-mail-password:latest"
+          fi
+          echo "SECRETS=${secrets}" >> "$GITHUB_ENV"
+
+          # Plain (non-secret) settings for the web service
+          cat > "${RUNNER_TEMP}/service-env.yaml" <<ENVFILE
+          SPRING_PROFILES_ACTIVE: "production"
+          DB_NAME: "ecommerce"
+          DB_USER: "ecommerce"
+          INSTANCE_CONNECTION_NAME: "${CLOUD_SQL}"
+          FRONTEND_URL: "${FRONTEND_URL}"
+          APP_CORS_ALLOWED_ORIGINS: "${CORS_ORIGINS}"
+          ENVFILE
+
+          if [ "$mail_account_on" = "true" ]; then
+            printf 'MAIL_USERNAME: "%s"\n' "$MAIL_ACCOUNT_USERNAME" >> "${RUNNER_TEMP}/service-env.yaml"
+          fi
+
+          # Same settings for the demo reset job, plus the profile that switches it on
+          sed 's/^SPRING_PROFILES_ACTIVE: .*/SPRING_PROFILES_ACTIVE: "production,demo-reset"/' \
+            "${RUNNER_TEMP}/service-env.yaml" > "${RUNNER_TEMP}/job-env.yaml"
+
+      # One instance only: the list of signed-out tokens is kept in memory (TokenBlacklistService).
+      - name: Deploy the web service
+        run: |
+          gcloud run deploy ecommerce-api \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "$RUNTIME_SA" \
+            --allow-unauthenticated \
+            --cpu 1 --memory 1Gi --cpu-boost \
+            --min-instances "$MIN_INSTANCES" --max-instances 1 \
+            --concurrency 40 --timeout 60 \
+            --add-cloudsql-instances "$CLOUD_SQL" \
+            --env-vars-file "${RUNNER_TEMP}/service-env.yaml" \
+            --set-secrets "$SECRETS" \
+            --quiet
+
+      - name: Deploy the demo reset job
+        run: |
+          gcloud run jobs deploy ecommerce-demo-reset \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "$RUNTIME_SA" \
+            --cpu 1 --memory 1Gi \
+            --max-retries 0 --task-timeout 15m \
+            --set-cloudsql-instances "$CLOUD_SQL" \
+            --env-vars-file "${RUNNER_TEMP}/job-env.yaml" \
+            --set-secrets "$SECRETS" \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          url="$(gcloud run services describe ecommerce-api --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')"
+          echo "Service URL: ${url}"
+          {
+            echo "Ecommerce API: ${url}  (health: ${url}/health)"
+            echo "Stripe webhook endpoint: ${url}/api/payments/webhook"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The first request after a deploy can take a while: the very first start also creates the tables and seeds
+          # the demo data.
+          for attempt in $(seq 1 18); do
+            if [ "$(curl -s --max-time 30 "${url}/health" || true)" = "OK" ]; then
+              echo "Healthy after attempt ${attempt}."
+              exit 0
+            fi
+            echo "Not healthy yet (attempt ${attempt}/18), waiting..."
+            sleep 10
+          done
+          echo "::error::The service did not become healthy. Check the Cloud Run logs for ecommerce-api."
+          exit 1
+
+      # Every deploy ends with fresh demo data (Cloud Scheduler repeats this at 03:30 every night).
+      - name: Reset the demo data
+        run: |
+          gcloud run jobs execute ecommerce-demo-reset \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --wait \
+            --quiet
+
+      - name: Check the API the way the frontend uses it
+        run: |
+          set -euo pipefail
+          url="$(gcloud run services describe ecommerce-api --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')"
+
+          # The store front lists the seeded products without signing in.
+          products="$(curl -fsS --max-time 30 "${url}/api/products/public?size=1")"
+          echo "$products" | jq -e '.totalElements > 0' > /dev/null \
+            || { echo "::error::The product list is empty after the reset."; exit 1; }
+
+          # The browser may call the API from the Hosting site (CORS preflight), with the headers the frontend sends on
+          # the auth calls (src/services/api.ts in the frontend). Spring answers 200 even when it allows only some of
+          # the requested headers and the browser then refuses the call, so look at the allowed headers, not the status.
+          requested="authorization,cache-control,content-type,expires,pragma"
+          preflight="$(curl -sS --max-time 30 -o /dev/null -D - -X OPTIONS \
+            -H "Origin: ${SITE_URL}" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: ${requested}" \
+            "${url}/api/auth/login" | tr -d '\r')"
+          allowed_origin="$(awk 'tolower($1) == "access-control-allow-origin:" { print $2 }' <<< "$preflight")"
+          allowed_headers="$(awk 'tolower($1) == "access-control-allow-headers:" { $1 = ""; print tolower($0) }' <<< "$preflight" | tr -d ' ')"
+          [ "$allowed_origin" = "$SITE_URL" ] \
+            || { echo "::error::CORS does not allow ${SITE_URL} (got '${allowed_origin}')."; exit 1; }
+          for header in ${requested//,/ }; do
+            case ",${allowed_headers}," in
+              *",${header},"*) ;;
+              *) echo "::error::CORS does not allow the request header '${header}' (allowed: '${allowed_headers}'); the browser would refuse to sign in."; exit 1 ;;
+            esac
+          done
+
+          # Stripe calls the webhook without signing in. A request with a wrong signature must be refused by the handler
+          # itself (500, "Invalid webhook signature"), not by the security filter (401/403). (Without any signature header
+          # Spring answers 400 through /error, which is not public, so that would show 401 and prove nothing.)
+          code="$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' -H 'Stripe-Signature: t=1,v1=smoke-test' -d '{}' "${url}/api/payments/webhook")"
+          case "$code" in
+            401|403) echo "::error::The Stripe webhook is blocked (HTTP ${code}); orders would never be marked as paid."; exit 1 ;;
+          esac
+          echo "Products, CORS and the webhook route are fine."
